@@ -76,6 +76,72 @@ std::vector<double> Network::recoveries() const {
     return vals;
 }
 
+std::pair<size_t, double> Network::degree(const size_t&n) const {
+	
+	std::pair<size_t, double> pair;
+	for(size_t i(0); i<neighbors(n).size(); ++i)
+	{
+		pair.second += neighbors(n)[i].second;
+	}
+	pair.first = neighbors(n).size();
+	return pair;
+}
+
+std::vector<std::pair<size_t, double> > Network::neighbors(const size_t& n) const {
+	
+	std::vector<std::pair<size_t,double>> neighbors;
+	neighbors.clear();
+	for(std::map<std::pair<size_t, size_t>,double> :: const_iterator it = links.lower_bound({n,0}); it!=links.end() and ((it->first).first==n);++it)
+	{
+		std::pair<size_t, double> pair_connect((it->first).second, it->second);
+		neighbors.push_back(pair_connect);
+	}
+	return neighbors;	
+}
+	
+std::set<size_t> Network::step(const std::vector<double>& t) {
+	
+	std::set<size_t> firing_neurons;
+	double inhibiteurs (0.0);
+	double excitateurs (0.0); 
+	double total(0.0); 
+	
+	for (size_t i(0); i<neurons.size();++i) {
+		
+		if (neurons[i].firing()) {
+			neurons[i].reset();
+		}
+		std::vector<std::pair<size_t,double>> neighbor(neighbors(i));
+		
+		for (size_t j(0); j<neighbors(i).size(); ++j){
+			
+			if(neurons[neighbor[j].first].firing())
+			{
+				if (neurons[neighbor[j].first].is_inhibitory()) 
+				{
+						inhibiteurs += neighbor[j].second;
+					} else {
+						excitateurs += neighbor[j].second;
+					}
+				}
+			}
+			if (neurons[i].is_inhibitory()) {
+				total = (0.4 * t[i]) + (0.5 * inhibiteurs) + excitateurs;		
+			} else {
+				total = 1 * t[i] + 0.5 * inhibiteurs + excitateurs;
+			}
+				neurons[i].input(total);
+				neurons[i].step();
+				
+				if (neurons[i].firing()) {
+					firing_neurons.insert(i);
+				}
+			}
+		
+		return firing_neurons;
+}
+				
+
 void Network::print_params(std::ostream *_out) {
     (*_out) << "Type\ta\tb\tc\td\tInhibitory\tdegree\tvalence" << std::endl;
     for (size_t nn=0; nn<size(); nn++) {
